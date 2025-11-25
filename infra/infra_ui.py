@@ -6,6 +6,7 @@ from aws_cdk import (
     aws_s3_deployment as s3_deployment,
     CfnOutput,
     Duration,
+    RemovalPolicy,
     Stack,    
 )
 from pathlib import Path
@@ -17,11 +18,11 @@ def create_ui_infrastructure(self: Stack):
 
     bucket = s3.Bucket(self, "DynamicRagBucket",
         bucket_name="dynamic-rag-bucket",
-        block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+        block_public_access=s3.BlockPublicAccess.BLOCK_ACLS_ONLY,
         enforce_ssl=True,
-        # removal_policy=RemovalPolicy.DESTROY,
-        # auto_delete_objects=True,
-        website_index_document="index.html",             
+        removal_policy=RemovalPolicy.DESTROY,
+        auto_delete_objects=True,
+        # website_index_document="index.html",             
     )
 
     s3_deployment.BucketDeployment(self, "DeployWebsite",
@@ -29,9 +30,20 @@ def create_ui_infrastructure(self: Stack):
         destination_bucket=bucket,
     )
 
+    oac = cloudfront.CfnOriginAccessControl(self, "OAC",
+        origin_access_control_config=cloudfront.CfnOriginAccessControl.OriginAccessControlConfigProperty(
+            name="dynamic-rag-oac",
+            origin_access_control_origin_type="s3",
+            signing_behavior="always",
+            signing_protocol="sigv4"
+        )        
+    )
+
     distribution = cloudfront.Distribution(self, "DynamicRagDistribution",
         default_behavior=cloudfront.BehaviorOptions(
-            origin=origins.S3BucketOrigin(bucket),
+            origin=origins.S3BucketOrigin(bucket, 
+                origin_access_control_id=oac.attr_id
+            ),
             viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,                
         ),
         default_root_object="index.html",
@@ -48,11 +60,11 @@ def create_ui_infrastructure(self: Stack):
         principals=[iam.AnyPrincipal()],
         actions=["s3:GetObject"],
         resources=[bucket.arn_for_objects("*")],
-        # conditions={
-        #     "StringEquals": {
-        #         "AWS:SourceArn": distribution.distribution_arn
-        #     }
-        # }            
+        conditions={
+            "StringEquals": {
+                "AWS:SourceArn": distribution.distribution_arn
+            }
+        }            
     ))
 
     # Output the CloudFront distribution domain name

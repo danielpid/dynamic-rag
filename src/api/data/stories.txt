@@ -1,0 +1,34 @@
+Document 1
+Title: The Arken Squad
+Text:
+Lira leads a small research team in Arken City.
+The team studies rare crystal growth.
+Lira tracks daily changes in crystal shape and color.
+She stores all reports in a vault on Level 3.
+The lab opens at 7:00 and closes at 18:00.
+
+Document 2
+Title: The Missing Crystal Event
+Text:
+On 4 May 2042 a crystal sample named Cobalt-9 vanished.
+Only two people had access to it.
+Lira and her assistant Taro handled the sample the day before.
+Security logs show one entry at 22:13.
+No report was filed about that entry.
+
+Document 3
+Title: Taro’s Field Visit
+Text:
+Taro visited the North Quarry on 3 May 2042.
+He collected mineral dust for comparison tests.
+He returned at 19:40.
+He noted that the dust did not match Cobalt-9.
+He planned to repeat the test on 6 May.
+
+Document 4
+Title: Conflicting Archive Note
+Text:
+An archive memo dated 4 May 2042 states that Cobalt-9 was stored on Level 5.
+All other documents say Level 3.
+The memo has no signature.
+The record number on the memo is duplicated in another folder.

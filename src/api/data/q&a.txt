@@ -1,0 +1,35 @@
+• Who leads the research team in Arken City?
+Answer: Lira leads the team.
+
+• What does the team study?
+Answer: The team studies rare crystal growth.
+
+• Where are Lira's reports stored?
+Answer: Level 3.
+
+• When did the Cobalt-9 sample vanish?
+Answer: 4 May 2042.
+
+• Who handled Cobalt-9 the day before it vanished?
+Answer: Lira and Taro.
+
+• What time does the lab close?
+Answer: 18:00.
+
+• When did the security log record an entry related to the missing crystal?
+Answer: 22:13.
+
+• Where did Taro go on 3 May 2042?
+Answer: The North Quarry.
+
+• What did Taro conclude about the mineral dust he collected?
+Answer: It did not match Cobalt-9.
+
+• Which date did Taro plan to repeat the test?
+Answer: 6 May.
+
+• What is the conflicting detail about Cobalt-9 storage?
+Answer: One memo says Level 5 but all other documents say Level 3.
+
+• What issue appears in the archive memo?
+Answer: The memo has no signature and its record number is duplicated.
