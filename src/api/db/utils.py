@@ -34,7 +34,8 @@ def create_vector_extension():
         except Exception:
             pass
 
-def check_vector_extension(conn):   
+def check_vector_extension():   
+    """Simple helper to verify that the `vector` extension is available."""
     try: 
         conn = get_connection()
         with conn.cursor() as cur:       
@@ -45,4 +46,5 @@ def check_vector_extension(conn):
             if 'conn' in locals() and conn:
                 conn.close()
         except Exception:
+            # Avoid raising from cleanup in utility function
             pass

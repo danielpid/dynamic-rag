@@ -9,10 +9,10 @@ from .infra_api import create_api_infrastructure
 class DynamicRagStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+        super().__init__(scope, construct_id, **kwargs)        
+        # Create API Infrastructure
+        create_api_infrastructure(self)       
         # Create UI Infrastructure
         create_ui_infrastructure(self)  
-        # Create API Infrastructure
-        create_api_infrastructure(self)
 
         

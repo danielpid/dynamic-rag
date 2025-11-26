@@ -1,58 +1,84 @@
+# Dynamic RAG with LlamaIndex, PGVector, and AWS
 
-# Welcome to your CDK Python project!
+This project is a demonstration of how to build a serverless, Retrieval-Augmented Generation (RAG) pipeline on AWS. It uses LlamaIndex, PGVector, and a React-based chat interface to allow users to ask questions about a static document.
 
-This is a blank project for CDK development with Python.
+## Architecture
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+The architecture is composed of two main parts:
 
-This project is set up like a standard Python project.  The initialization
-process also creates a virtualenv within this project, stored under the `.venv`
-directory.  To create the virtualenv it assumes that there is a `python3`
-(or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
+1.  **Ingestion**: An API endpoint to ingest documents into the RAG pipeline. Documents are read from an S3 bucket, processed by a Lambda function to generate embeddings with LlamaIndex and OpenAI, and stored in a PGVector database.
+2.  **Querying**: An API endpoint that takes a user's question, retrieves relevant context from the PGVector database, and uses an LLM to generate an answer.
 
-To manually create a virtualenv on MacOS and Linux:
+The entire infrastructure is deployed on AWS using the AWS CDK.
 
-```
-$ python3 -m venv .venv
-```
+## Technologies Used
 
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
+- **Backend**: Python, AWS CDK, AWS Lambda, API Gateway, S3, RDS for PostgreSQL.
+- **RAG**: LlamaIndex, PGVector, OpenAI.
+- **Frontend**: React, TypeScript, Vite, TailwindCSS.
 
-```
-$ source .venv/bin/activate
-```
+## Getting Started
 
-If you are a Windows platform, you would activate the virtualenv like this:
+### Prerequisites
 
-```
-% .venv\Scripts\activate.bat
-```
+- An AWS Account and configured credentials.
+- Node.js and `pnpm`.
+- Python 3.12.
+- AWS CDK Toolkit.
 
-Once the virtualenv is activated, you can install the required dependencies.
+### Backend Setup
 
-```
-$ pip install -r requirements.txt
-```
+1.  **Create a virtual environment:**
 
-At this point you can now synthesize the CloudFormation template for this code.
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate
+    ```
 
-```
-$ cdk synth
-```
+2.  **Install Python dependencies:**
 
-To add additional dependencies, for example other CDK libraries, just add
-them to your `setup.py` file and rerun the `pip install -r requirements.txt`
-command.
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-## Useful commands
+3.  **Deploy the CDK stack:**
+    Before deploying, make sure your AWS credentials are set up correctly. Then run:
+    ```bash
+    cdk deploy --all --require-approval never
+    ```
+    This will provision all the necessary AWS resources. After the deployment is complete, take note of the API Gateway URL from the output.
 
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
+### Frontend Setup
 
-Enjoy!
+1.  **Navigate to the UI directory:**
+
+    ```bash
+    cd src/ui
+    ```
+
+2.  **Install dependencies:**
+
+    ```bash
+    pnpm install
+    ```
+
+3.  **Configure the API URL:**
+    Create a `.env.local` file in the `src/ui` directory and add the API Gateway URL:
+
+    ```
+    VITE_API_URL=YOUR_API_GATEWAY_URL
+    ```
+
+    Replace `YOUR_API_GATEWAY_URL` with the URL you got from the CDK deployment output.
+
+4.  **Run the development server:**
+    ```bash
+    pnpm dev
+    ```
+    The application will be available at `http://localhost:5173`.
+
+## Deployment
+
+The project is deployed using the AWS CDK. The `cdk deploy --all --require-approval never` command will deploy both the backend and frontend stacks.
+
+Any changes to the infrastructure or code can be deployed by running the same command again.

@@ -4,17 +4,18 @@ from aws_cdk import (
     aws_iam as iam,
     aws_s3 as s3,
     aws_s3_deployment as s3_deployment,
+    BundlingOptions,
     CfnOutput,
+    DockerImage,
     Duration,
     RemovalPolicy,
     Stack,    
 )
 from pathlib import Path
 
+from .infra_utils import _read_env_file
+
 def create_ui_infrastructure(self: Stack):
-    asset_dir = Path.cwd() / "src" / "ui" / "dist"
-    if not asset_dir.is_dir():
-        raise FileNotFoundError(f"Required asset directory not found: {asset_dir}. Build the UI (create ./src/dynamic-rag-ui/dist) before deploying.")
 
     bucket = s3.Bucket(self, "DynamicRagBucket",
         bucket_name="dynamic-rag-bucket",
@@ -22,12 +23,6 @@ def create_ui_infrastructure(self: Stack):
         enforce_ssl=True,
         removal_policy=RemovalPolicy.DESTROY,
         auto_delete_objects=True,
-        # website_index_document="index.html",             
-    )
-
-    s3_deployment.BucketDeployment(self, "DeployWebsite",
-        sources=[s3_deployment.Source.asset(asset_dir.as_posix())],
-        destination_bucket=bucket,
     )
 
     oac = cloudfront.CfnOriginAccessControl(self, "OAC",
@@ -37,7 +32,7 @@ def create_ui_infrastructure(self: Stack):
             signing_behavior="always",
             signing_protocol="sigv4"
         )        
-    )
+    )    
 
     distribution = cloudfront.Distribution(self, "DynamicRagDistribution",
         default_behavior=cloudfront.BehaviorOptions(
@@ -54,10 +49,33 @@ def create_ui_infrastructure(self: Stack):
         ],
     )
 
+    vite_api_url = _read_env_file("VITE_API_URL")
+
+    s3_deployment.BucketDeployment(self, "DeployWebsite",
+        sources=[
+            s3_deployment.Source.asset(
+                str(Path.cwd() / "src" / "ui"),
+                bundling=BundlingOptions(
+                    image=DockerImage.from_build(path="infra"),
+                    command=[
+                        "bash", "-c",
+                        "CI=true pnpm i --frozen-lockfile && pnpm build && cp -r dist/. /asset-output/"
+                    ],
+                    environment={
+                        "VITE_API_URL": vite_api_url
+                    }
+
+                ),
+            )
+        ],
+        destination_bucket=bucket,
+        distribution=distribution
+    )
+
     bucket.add_to_resource_policy(iam.PolicyStatement(
         sid="AllowCloudFrontReadAccess",
         effect=iam.Effect.ALLOW,
-        principals=[iam.AnyPrincipal()],
+        principals=[iam.ServicePrincipal("cloudfront.amazonaws.com")],
         actions=["s3:GetObject"],
         resources=[bucket.arn_for_objects("*")],
         conditions={

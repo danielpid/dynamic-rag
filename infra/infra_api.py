@@ -1,10 +1,8 @@
 from aws_cdk import (
     aws_apigateway as apigw,
-    aws_lambda as _lambda,    
-    aws_lambda_python_alpha as lambda_python,
     aws_ec2 as ec2,
     aws_rds as rds,
-    aws_s3 as s3,
+    aws_s3 as s3,   
     aws_secretsmanager as secretsmanager,
     Duration,
     RemovalPolicy,
@@ -13,15 +11,16 @@ from aws_cdk import (
 
 import json
 
+from .infra_utils import create_lambda_image, create_lambda_function
+
 POSTGRES_VERSION = rds.PostgresEngineVersion.VER_17_6
 
 def create_api_infrastructure(self: Stack):
-    nat = ec2.NatProvider.gateway()
 
     vpc = ec2.Vpc(self, "DynamicRagVPC",
         max_azs=2,
         cidr="10.5.0.0/16",
-        nat_gateway_provider=nat,
+        nat_gateway_provider=ec2.NatProvider.gateway(),
         nat_gateways=1,
         subnet_configuration=[
             ec2.SubnetConfiguration(
@@ -42,7 +41,7 @@ def create_api_infrastructure(self: Stack):
         ],        
     )
 
-    secretDb = secretsmanager.Secret(
+    secrets_db = secretsmanager.Secret(
         self,
         "DynamicRagDbSecret",
         secret_name="dynamic-rag/db_creds",
@@ -53,17 +52,17 @@ def create_api_infrastructure(self: Stack):
         ),
     )
 
-    secretKeys = secretsmanager.Secret.from_secret_name_v2(self, "DynamicRagKeysSecret",
+    secret_keys = secretsmanager.Secret.from_secret_name_v2(self, "DynamicRagKeysSecret",
         "dynamic-rag/openai_api_key"
     )
 
-    lambdaSecurityGroup = ec2.SecurityGroup(self, "DynamicRagLambdaSecurityGroup",
+    lambda_security_group = ec2.SecurityGroup(self, "DynamicRagLambdaSecurityGroup",
         vpc=vpc,
         security_group_name="security_group_lambda",
         allow_all_outbound=True,
     )        
     
-    subnetGroupDb = rds.SubnetGroup(self, "DynamicRagSubnetGroup",
+    subnet_group_db = rds.SubnetGroup(self, "DynamicRagSubnetGroup",
         vpc=vpc,
         vpc_subnets=ec2.SubnetSelection(
             subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
@@ -72,18 +71,18 @@ def create_api_infrastructure(self: Stack):
         description="Subnet group for postgres",
     )
 
-    securityGroup = ec2.SecurityGroup(self, "DynamicRagDBSecurityGroup",
+    db_security_group = ec2.SecurityGroup(self, "DynamicRagDBSecurityGroup",
         vpc=vpc,
         security_group_name="security_group_db",
         allow_all_outbound=True,
     )
 
-    securityGroup.add_ingress_rule(
-        peer=lambdaSecurityGroup,
+    db_security_group.add_ingress_rule(
+        peer=lambda_security_group,
         connection=ec2.Port.tcp(5432),
     )
 
-    parameterGroup = rds.ParameterGroup(self, "DynamicRagPostgresParameterGroup",
+    parameter_group = rds.ParameterGroup(self, "DynamicRagPostgresParameterGroup",
         engine=rds.DatabaseInstanceEngine.postgres(
             version=POSTGRES_VERSION
         ),
@@ -93,7 +92,7 @@ def create_api_infrastructure(self: Stack):
         },
     )    
 
-    postgres = rds.DatabaseInstance(self, "DynamicRagPostgresDB",
+    postgres_db = rds.DatabaseInstance(self, "DynamicRagPostgresDB",
         instance_identifier="dynamic-rag-postgres",
         engine=rds.DatabaseInstanceEngine.postgres(
             version=POSTGRES_VERSION
@@ -101,61 +100,59 @@ def create_api_infrastructure(self: Stack):
         instance_type=ec2.InstanceType.of(
             ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO
         ),
-        parameter_group=parameterGroup,
+        parameter_group=parameter_group,
         allocated_storage=20,
         max_allocated_storage=100,
-        credentials=rds.Credentials.from_secret(secretDb),
+        credentials=rds.Credentials.from_secret(secrets_db),
         database_name="dynamic_rag_db",
         vpc=vpc,
-        subnet_group=subnetGroupDb,      
+        subnet_group=subnet_group_db,      
         publicly_accessible=False,
         backup_retention=Duration.days(7),
         security_groups=[
-            securityGroup,
+            db_security_group,
         ],
     )
 
-    # addDocumentToIndexFn = lambda_python.PythonFunction(self, "AddDocumentToIndexApiHandler",
-    #     entry="./src/api/lambdas",
-    #     runtime=_lambda.Runtime.PYTHON_3_12,
-    #     index="addDocumentToIndex.py",
-    #     handler="handler",
-    #     vpc=vpc,
-    #     security_groups=[lambdaSecurityGroup],
-    #     timeout=Duration.seconds(30),
-    #     environment={
-    #         "DB_SECRET_ARN": secretDb.secret_arn,
-    #         "DB_HOST": postgres.db_instance_endpoint_address,
-    #         "DB_PORT": str(postgres.db_instance_endpoint_port),
-    #         "DB_NAME": "dynamic_rag_db"
-    #     }
-    # )    
-
-    addDocumentToIndexFn = _lambda.DockerImageFunction(self, "AddDocumentToIndexApiHandler",
-        # need a docker lambda container because of the size of the dependencies 
-        code=_lambda.DockerImageCode.from_image_asset("./src/api/lambdas"),
-        memory_size=1024,
-        vpc=vpc,
-        vpc_subnets=ec2.SubnetSelection(
-            subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-        ),
-        security_groups=[lambdaSecurityGroup],
-        timeout=Duration.seconds(30),
-        environment={
-            "DB_HOST": postgres.db_instance_endpoint_address,
-            "DB_PORT": str(postgres.db_instance_endpoint_port),
-            "DB_NAME": "dynamic_rag_db",
-        }
+    health_check_fn = create_lambda_function(
+        self,
+        id="HealthCheckFunction",
+        handler_path="health_check.handle_health_check"
     )
 
-    s3DataBucket = s3.Bucket(self, "DynamicRagDataBucket", 
+    s3_data_bucket = s3.Bucket(self, "DynamicRagDataBucket", 
         bucket_name="dynamic-rag-data-bucket", 
         block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
         removal_policy=RemovalPolicy.DESTROY,
         auto_delete_objects=True,
     )
+
+    env = {
+        "DB_HOST": postgres_db.db_instance_endpoint_address,
+        "DB_PORT": str(postgres_db.db_instance_endpoint_port),
+        "DB_NAME": "dynamic_rag_db",
+        "DATA_BUCKET_NAME": s3_data_bucket.bucket_name,
+    }
+
+    ingest_documents_fn = create_lambda_image(
+        self,
+        id="IngestDocumentsFunction",
+        directory="ingest_documents",
+        env=env,
+        vpc=vpc,
+        sg=lambda_security_group,        
+    )
+
+    query_index_fn = create_lambda_image(
+        self,
+        id="QueryIndexFunction",
+        directory="query_index",
+        vpc=vpc,
+        sg=lambda_security_group,
+        env=env
+    )    
     
-    s3DataBucket.grant_read(addDocumentToIndexFn)
+    s3_data_bucket.grant_read(ingest_documents_fn)
 
     ec2.GatewayVpcEndpoint(self, "S3GatewayEndpoint",
         vpc=vpc,
@@ -168,24 +165,36 @@ def create_api_infrastructure(self: Stack):
         vpc=vpc,
         service=ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
         subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
-        security_groups=[lambdaSecurityGroup]
+        security_groups=[lambda_security_group]
     )
     ec2.InterfaceVpcEndpoint(self, "StsVpcEndpoint",
         vpc=vpc,
         service=ec2.InterfaceVpcEndpointAwsService.STS,
         subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
-        security_groups=[lambdaSecurityGroup]
+        security_groups=[lambda_security_group]
     )
 
-    secretDb.grant_read(addDocumentToIndexFn)
-    secretKeys.grant_read(addDocumentToIndexFn)
+    secrets_db.grant_read(ingest_documents_fn)
+    secrets_db.grant_read(query_index_fn)
+    secret_keys.grant_read(ingest_documents_fn)
+    secret_keys.grant_read(query_index_fn)
 
-    apigw.LambdaRestApi(self, "ApiGwEndpoint",
-        handler=addDocumentToIndexFn,
+    api = apigw.LambdaRestApi(self, "ApiGwEndpoint",
+        handler=health_check_fn,
         rest_api_name="DynamicRagApi",
         description="API Gateway for Dynamic RAG Application",
         deploy_options=apigw.StageOptions(
             stage_name="prod",
             caching_enabled=False
-        )
+        ),
+        default_cors_preflight_options=apigw.CorsOptions(
+            allow_origins=apigw.Cors.ALL_ORIGINS,
+            allow_methods=apigw.Cors.ALL_METHODS,
+        )       
     )
+
+    # This lambda won't be accessible
+    # api.root.add_resource("ingest").add_method("POST", apigw.LambdaIntegration(ingest_documents_fn))
+    
+    api.root.add_resource("query").add_method("POST", apigw.LambdaIntegration(query_index_fn))
+

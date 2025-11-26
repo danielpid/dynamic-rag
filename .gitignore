@@ -6,6 +6,7 @@ __pycache__
 *.egg-info
 src/api/layers/base/python
 .DS_Store
+src/ui/.pnpm-store
 
 # CDK asset staging directory
 .cdk.staging

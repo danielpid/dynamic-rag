@@ -1,7 +1,9 @@
 FROM public.ecr.aws/lambda/python:3.12
 
-# install your heavy libraries
-COPY requirements.txt .
+ARG DIRECTORY
+
+# install the libraries
+COPY ${DIRECTORY}/requirements.txt .
 RUN pip install -r requirements.txt
 
 # Download the required packages (stopwords and punkt are used by LlamaIndex)
@@ -10,8 +12,9 @@ RUN mkdir -p ${NLTK_DATA}
 RUN python -c "import nltk; nltk.download('punkt', download_dir='${NLTK_DATA}')"
 RUN python -c "import nltk; nltk.download('stopwords', download_dir='${NLTK_DATA}')"
 
-# copy your function
-COPY addDocumentToIndex.py .
+# copy your function and shared modules while preserving package structure
+COPY ${DIRECTORY} ${DIRECTORY}
+COPY common common
 
-# set handler: file.function
-CMD ["addDocumentToIndex.handler"]
+# overridden by the param cmd in CDK
+CMD ["handler.handler"]
