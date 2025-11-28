@@ -1,8 +1,9 @@
 import json
 from llama_index.core import VectorStoreIndex
 
-from common.const import response_headers
-from common.lambda_utils import initialize_vector_store
+from common.lambda_utils import initialize_vector_store, build_response
+
+QUESTION_MAX_LENGTH = 256
 
 def handler(event, context):
     print("Query Lambda invoked", event)
@@ -19,12 +20,11 @@ def handler(event, context):
             pass
             
     if not question:
-        return {
-            'statusCode': 400,
-            'headers': response_headers,
-            'body': json.dumps({'error': 'No question provided in the request'})
-        }
+        return build_response(400, {'error': 'No question provided in the request'})
 
+    elif len(question) > QUESTION_MAX_LENGTH:
+        return build_response(400, {'message': f'The question cannot exceed the {QUESTION_MAX_LENGTH} characters'})        
+    
     try:        
         vector_store = initialize_vector_store()
         
@@ -34,16 +34,8 @@ def handler(event, context):
         query_engine = index.as_query_engine()
         response = query_engine.query(question)
 
-        return {            
-            'statusCode': 200,
-            'headers': response_headers,
-            'body': json.dumps({'question': question, 'answer': str(response)})
-        }
+        return build_response(200, {'question': question, 'answer': str(response)})
 
     except Exception as e:
         print(f"Error querying index: {e}")
-        return {
-            'statusCode': 500, 
-            'headers': response_headers,
-            'body': json.dumps({'error': str(e)})
-        }
+        return build_response(500, {'error': str(e)})        

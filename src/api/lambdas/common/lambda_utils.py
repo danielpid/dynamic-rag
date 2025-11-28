@@ -1,4 +1,5 @@
 import os
+import json
 
 from aws_lambda_powertools.utilities import parameters
 from llama_index.core import Settings
@@ -6,7 +7,7 @@ from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.vector_stores.postgres import PGVectorStore
 
-from .const import model
+from .const import model, response_headers
 
 ONE_DAY_IN_SECONDS = 86400
 
@@ -43,3 +44,10 @@ def initialize_vector_store(add_hnsw_kwargs=False):
     vector_store = PGVectorStore.from_params(**vector_store_params)
 
     return vector_store
+
+def build_response(status_code, body):
+    return {
+        'statusCode': status_code,
+        'headers': response_headers,
+        'body': json.dumps(body)
+    }

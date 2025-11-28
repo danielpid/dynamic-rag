@@ -198,3 +198,12 @@ def create_api_infrastructure(self: Stack):
     
     api.root.add_resource("query").add_method("POST", apigw.LambdaIntegration(query_index_fn))
 
+    api.add_usage_plan("UsagePlan", 
+        name="Default",
+        throttle=apigw.ThrottleSettings(
+            rate_limit=2,
+            burst_limit=1
+        )    
+    )
+
+

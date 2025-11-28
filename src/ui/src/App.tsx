@@ -2,6 +2,8 @@ import { type FormEvent, useState } from 'react'
 
 const API_URL = import.meta.env?.VITE_API_URL
 
+const QUESTION_MAX_LENGTH = 256;
+
 function App() {
   const [prompt, setPrompt] = useState('')
   const [lastQuestion, setLastQuestion] = useState<string | null>(null)
@@ -14,6 +16,10 @@ function App() {
     const trimmedPrompt = prompt.trim()
     if (!trimmedPrompt || isLoading) {
       return
+    }
+    if (trimmedPrompt.length > QUESTION_MAX_LENGTH) {
+      setError(`The question cannot exceed ${QUESTION_MAX_LENGTH}`)
+      return;
     }
 
     try {
@@ -29,7 +35,8 @@ function App() {
       })
 
       if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`)
+        const { message } = await response.json()
+        throw new Error(message || `There's been an error processing the request`)
       }
 
       const data: { answer?: string } = await response.json()
